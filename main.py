@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,11 +8,13 @@ from config.database import create_db_and_tables  # , delete_db_and_tables
 from config.env import FRONTEND_SETTINGS
 from routers import token, user
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # delete_db_and_tables()
     create_db_and_tables()
     yield
+
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
