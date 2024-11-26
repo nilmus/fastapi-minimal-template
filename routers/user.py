@@ -1,15 +1,12 @@
-import sqlite3
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
-from psycopg2.errors import UniqueViolation
-from sqlalchemy import exc as sa_exc
 from sqlalchemy import select
 
 from config.database import SessionDep
 from models.user import User, UserCreate, UserRead, UserUpdate
 from utils.auth import UserDep
-from utils.models import update_model
+from utils.models import unique_violation_handler, update_model
 from utils.security import get_password_hash
 
 router = APIRouter(
@@ -22,17 +19,11 @@ router = APIRouter(
 def create_user(create_schema: UserCreate, session: SessionDep):
     create_schema.password = get_password_hash(create_schema.password)
     user_model = User(**create_schema.model_dump())
-    try:
+    with unique_violation_handler(resource_name="user"):
         session.add(user_model)
         session.commit()
         session.refresh(user_model)
         return user_model
-    except sa_exc.IntegrityError as e:
-        if isinstance(e.orig, UniqueViolation):  # This is for Postgres
-            raise HTTPException(status_code=409, detail="Username already exists")
-        if isinstance(e.orig, sqlite3.IntegrityError):  # This is for SQLite
-            raise HTTPException(status_code=409, detail="Username already exists")
-        raise e
 
 
 @router.get("/me", response_model=UserRead)
